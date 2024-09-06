@@ -67,7 +67,7 @@ public class Common {
             Pack loadedPack = getWithName(content[0]);
             if(loadedPack == null) continue; // There is no same pack loaded before
 
-            int currentVersion = Integer.parseInt(content[1].replaceAll("[^0-9]", ""));
+            int currentVersion = Integer.parseInt(loadedPack.getContent()[1].replaceAll("[^0-9]", ""));
             int loadingVersion = Integer.parseInt(content[1].replaceAll("[^0-9]", ""));
             if(currentVersion == loadingVersion) {
                 LOG.info("Skipping loading "+nameVersion+" as already loaded.");
@@ -114,7 +114,9 @@ public class Common {
             for (Path entry : stream) {
                 if (!Files.isDirectory(entry) && entry.toString().endsWith(".jar")) {
                     File file = entry.toFile();
-                    checkPackZip(file);
+                    Pack pack = checkPackZip(file);
+                    if(pack == null) LOG.error("Invalid ext.json for " + file.getName());
+                    packs.add(pack);
                 }
             }
 
