@@ -1,0 +1,2 @@
+"pointblank": ">=1.6.7"
+"yet_another_config_lib_v3": ">=${yacl_version_fabric}"
