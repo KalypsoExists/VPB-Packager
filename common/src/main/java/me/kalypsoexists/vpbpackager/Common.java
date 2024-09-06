@@ -65,16 +65,16 @@ public class Common {
             String nameVersion = rawName.replaceAll("[^0-9A-Za-z_-]", "_");
 
             Pack loadedPack = getWithName(content[0]);
-            if(loadedPack == null) continue; // There is no same pack loaded before
-
-            int currentVersion = Integer.parseInt(loadedPack.getContent()[1].replaceAll("[^0-9]", ""));
-            int loadingVersion = Integer.parseInt(content[1].replaceAll("[^0-9]", ""));
-            if(currentVersion == loadingVersion) {
-                LOG.info("Skipping loading "+nameVersion+" as already loaded.");
-                continue; // The pack version is equal to that of loaded.
-            } else if(currentVersion > loadingVersion) {
-                LOG.info("Skipping loading "+nameVersion+" as already loaded higher version "+loadedPack.getContent()[1]);
-                continue; // The pack version is lower than that of loaded.
+            if(loadedPack != null) {
+                int currentVersion = Integer.parseInt(loadedPack.getContent()[1].replaceAll("[^0-9]", ""));
+                int loadingVersion = Integer.parseInt(content[1].replaceAll("[^0-9]", ""));
+                if(currentVersion == loadingVersion) {
+                    LOG.info("Skipping loading "+nameVersion+" as already loaded.");
+                    continue; // The pack version is equal to that of loaded.
+                } else if(currentVersion > loadingVersion) {
+                    LOG.info("Skipping loading "+nameVersion+" as already loaded higher version "+loadedPack.getContent()[1]);
+                    continue; // The pack version is lower than that of loaded.
+                }
             }
 
             LOG.info("Copying ["+rawName+"]");
@@ -133,6 +133,7 @@ public class Common {
                     File file = entry.toFile();
                     Pack pack = checkPackZip(file);
                     if(pack == null) LOG.error("Invalid ext.json for " + file.getName());
+                    LOG.info("Detected valid pack "+file.getName());
                     packs.add(pack);
                 }
             }
@@ -177,7 +178,7 @@ public class Common {
 
             }
 
-            if(packs.isEmpty()) {
+            if(loadedPacks.isEmpty()) {
                 LOG.warn("No packs already exist in .../pointblank/");
                 return false;
             }
