@@ -80,6 +80,23 @@ public class Common {
             LOG.info("Copying ["+rawName+"]");
 
             try {
+                File checkZip = new File(packsDirectory+File.separator+name+".zip");
+                File checkDirectory = new File(packsDirectory+File.separator+name);
+
+                if(checkZip.isFile() && checkZip.exists()) {
+                    FileUtils.delete(checkZip);
+                }
+                if(checkDirectory.isDirectory() && checkDirectory.exists()) {
+                    FileUtils.deleteDirectory(checkDirectory);
+                }
+            } catch(IOException e) {
+                LOG.info("Failed to delete existing old version of the pack ["+rawName+"]");
+                LOG.info("Skipping ["+rawName+"]");
+            }
+
+
+            try {
+
                 FileUtils.copyFileToDirectory(file, packsDirectory.toFile());
                 File copied = new File(packsDirectory +File.separator+file.getName());
                 File zipFile = new File(copied.getAbsolutePath().replace(file.getName(), name+".zip"));
