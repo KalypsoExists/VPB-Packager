@@ -28,5 +28,5 @@ side = "BOTH"
 #modId = "pointblank"
 #mandatory = true
 #versionRange = "[1.6.7,)"
-#ordering = "BEFORE"
+#ordering = "AFTER"
 #side = "BOTH"

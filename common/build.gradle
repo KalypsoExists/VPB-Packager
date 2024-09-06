@@ -31,10 +31,10 @@ minecraft {
 }
 
 dependencies {
-     compileOnly group:'org.spongepowered', name:'mixin', version:'0.8.5'
-     implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.1'
-     implementation group: 'com.google.code.gson', name: 'gson', version: '2.11.0'
-     implementation group: 'commons-io', name: 'commons-io', version: '2.16.1'
+    compileOnly group:'org.spongepowered', name:'mixin', version:'0.8.5'
+    implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.1'
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.11.0'
+    implementation group: 'commons-io', name: 'commons-io', version: '2.16.1'
 }
 
 publishing {

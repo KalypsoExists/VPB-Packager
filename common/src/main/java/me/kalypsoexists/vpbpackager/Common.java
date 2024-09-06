@@ -22,49 +22,95 @@ import java.util.zip.ZipFile;
 
 public class Common {
 
+    // Constants
     public static final String MOD_ID = "vpbpackager";
-    public static final String MOD_NAME = "VPBPackager";
+    public static final String MOD_NAME = "VPB-Packager";
     public static final Logger LOG = LoggerFactory.getLogger(MOD_NAME);
+
+    // ./pointblank
     private static Path packsDirectory;
+    // ./mods
     private static Path modsDirectory;
 
-    // pack name, version, file
+    // Mods detected in ./mods
     private static final List<Pack> packs = new ArrayList<>();
-
-    // pack name, version
+    // Mods detected in ./pointblank
     private static final List<Pack> loadedPacks = new ArrayList<>();
+    // Packs to load after all mods are loaded by fml
+    private static final List<Pack> packsToLoad = new ArrayList<>();
 
     public static void init(Path gameDir) {
+
+        // Directories
         modsDirectory = gameDir.resolve("mods");
         final File packDir = gameDir.resolve("pointblank").toFile();
+
+        // Only continue if any packs are detected
         if(loadModFiles()) {
+            // ./pointblank
             if(!packDir.exists()) {
-                boolean mkDir = packDir.mkdir();
-                if(mkDir) {
-                    packsDirectory = packDir.toPath();
-                    LOG.info("Created .../pointblank/");
-                } else LOG.warn("Failed to create pack directory .../pointblank/");
+                if(packDir.mkdir()) LOG.info("Created ./pointblank");
+                else LOG.warn("Failed to create pack directory ./pointblank");
             }
             packsDirectory = packDir.toPath();
+
             loadExistingPackFiles();
             loadPacks();
         }
-
     }
 
+    public static void loadComplete() {
+        List<Pack> del = new ArrayList<>();
+        List<Pack> copy = new ArrayList<>();
+        for(Pack pack : packsToLoad) {
+            if(pack.getLoadedPack() != null) del.add(pack);
+            copy.add(pack);
+        }
+        deletePacks(del);
+        copyPacks(copy);
+    }
 
+    private static void deletePacks(List<Pack> packs) {
+        for(Pack pack : packs) {
+            try {
+                File del = pack.getLoadedPack();
+                if(del.isDirectory()) FileUtils.deleteDirectory(del);
+                if(del.isFile()) FileUtils.delete(del);
+            } catch(IOException e) {
+                LOG.info("Failed to delete existing old/existing version of the pack ["+pack.getContent()[0]+"]");
+            }
+        }
+    }
 
+    private static void copyPacks(List<Pack> packs) {
+        for(Pack pack : packs) {
+            String name = pack.getContent()[0];
+            try {
+                File file = pack.getFile();
+                FileUtils.copyFileToDirectory(file, packsDirectory.toFile());
+                File copied = new File(packsDirectory +File.separator+file.getName());
+                File zipFile = new File(copied.getAbsolutePath().replace(file.getName(), file.getName().replaceFirst("\\.jar$", "")+".zip"));
+                if (copied.renameTo(zipFile)) {
+                    LOG.info("Successfully moved ["+name+"]");
+                } else {
+                    LOG.error("Failed to move ["+name+"]");
+                }
+            } catch (IOException e) {
+                LOG.error("Failed to load pack ["+name+"]");
+            }
+        }
+    }
+
+    // Load packs from ./mods
     private static void loadPacks() {
         for(Pack pack : packs) {
 
             String[] content = pack.getContent();
-            File file = pack.getFile();
+            Pack loadedPack = getLoadedPack(content[0]);
 
-            String rawName = content[0]+"-"+content[1];
-            String name = content[0].replaceAll("[^0-9A-Za-z_-]", "_");
-            String nameVersion = rawName.replaceAll("[^0-9A-Za-z_-]", "_");
+            String nameVersion = content[0]+"-"+content[1];
+            //String name = content[0].replaceAll("[^0-9a-z/._-]", "_");
 
-            Pack loadedPack = getWithName(content[0]);
             if(loadedPack != null) {
                 int currentVersion = Integer.parseInt(loadedPack.getContent()[1].replaceAll("[^0-9]", ""));
                 int loadingVersion = Integer.parseInt(content[1].replaceAll("[^0-9]", ""));
@@ -75,31 +121,29 @@ public class Common {
                     LOG.info("Skipping loading "+nameVersion+" as already loaded higher version "+loadedPack.getContent()[1]);
                     continue; // The pack version is lower than that of loaded.
                 }
+
+                pack.loadedPack(loadedPack.getFile());
+                packsToLoad.add(pack);
+                LOG.info("Added pack to be updated ["+nameVersion+"]");
+                continue;
             }
 
-            LOG.info("Copying ["+rawName+"]");
-
-            try {
-                File checkZip = new File(packsDirectory+File.separator+name+".zip");
-                File checkDirectory = new File(packsDirectory+File.separator+name);
-
-                if(checkZip.isFile() && checkZip.exists()) {
-                    FileUtils.delete(checkZip);
-                }
-                if(checkDirectory.isDirectory() && checkDirectory.exists()) {
-                    FileUtils.deleteDirectory(checkDirectory);
-                }
+            /*try {
+                File del = loadedPack.getFile();
+                if(del.isDirectory()) FileUtils.deleteDirectory(del);
+                if(del.isFile()) FileUtils.delete(del);
             } catch(IOException e) {
-                LOG.info("Failed to delete existing old version of the pack ["+rawName+"]");
-                LOG.info("Skipping ["+rawName+"]");
-            }
+                LOG.info("Failed to delete existing old/existing version of the pack ["+rawName+"]");
+            }*/
 
+            LOG.info("Added pack to be loaded ["+nameVersion+"]");
+            packsToLoad.add(pack);
 
-            try {
+            /*try {
 
                 FileUtils.copyFileToDirectory(file, packsDirectory.toFile());
                 File copied = new File(packsDirectory +File.separator+file.getName());
-                File zipFile = new File(copied.getAbsolutePath().replace(file.getName(), name+".zip"));
+                File zipFile = new File(copied.getAbsolutePath().replace(file.getName(), file.getName().replaceFirst("\\.jar$", "")+".zip"));
                 if (copied.renameTo(zipFile)) {
                     LOG.info("File extension changed successfully");
                 } else {
@@ -107,12 +151,13 @@ public class Common {
                 }
             } catch (IOException e) {
                 LOG.error("Failed to load pack ["+rawName+"]");
-            }
+            }*/
 
         }
     }
 
-    private static Pack getWithName(String packName) {
+    // To check if a pack already exists in ./pointblank
+    private static Pack getLoadedPack(String packName) {
         for(Pack pack : loadedPacks) {
             if(pack.getContent()[0].equals(packName)) {
                 return pack;
@@ -121,9 +166,10 @@ public class Common {
         return null;
     }
 
+    // Detect packs from ./mods
     private static boolean loadModFiles() {
 
-        LOG.info("Loading pack files from .../mods/");
+        LOG.info("Loading pack files from ./mods");
 
         try {
             DirectoryStream<Path> stream = Files.newDirectoryStream(modsDirectory);
@@ -141,11 +187,11 @@ public class Common {
             }
 
             if(packs.isEmpty()) {
-                LOG.warn("No packs were loaded from .../mods/");
+                LOG.warn("No packs were loaded from ./mods");
                 return false;
             }
 
-            return true; // successful checking
+            return true;
         } catch(IOException e) {
             LOG.error("An error occurred trying to load mods(packs) directory");
         }
@@ -153,6 +199,7 @@ public class Common {
         return false;
     }
 
+    // Detect packs in ./pointblank
     private static boolean loadExistingPackFiles() {
 
         LOG.info("Loading existing pack files");
@@ -177,18 +224,19 @@ public class Common {
             }
 
             if(loadedPacks.isEmpty()) {
-                LOG.warn("No packs already exist in .../pointblank/");
+                LOG.warn("No packs already exist in ./pointblank");
                 return false;
             }
 
             return true; // successful checking
         } catch(IOException e) {
-            LOG.error("An error occurred trying to load pointblank(packs) directory");
+            LOG.error("An error occurred trying to load packs directory");
         }
 
         return false;
     }
 
+    // Check ext.json in zip content pack
     private static Pack checkPackZip(File file) {
 
         try {
@@ -217,6 +265,7 @@ public class Common {
         return null;
     }
 
+    // Check ext.json in folder content pack
     private static Pack checkPackFolder(File folder) {
         try {
             File[] files = folder.listFiles();
@@ -239,8 +288,7 @@ public class Common {
         return null;
     }
 
-
-
+    // Read json for ext.json with gson
     private static String[] readPackJson(String json) {
 
         JsonElement jsonElement = JsonParser.parseString(json);
