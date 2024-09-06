@@ -123,6 +123,8 @@ public class Common {
 
     private static boolean loadModFiles() {
 
+        LOG.info("Loading pack files from .../mods/");
+
         try {
             DirectoryStream<Path> stream = Files.newDirectoryStream(modsDirectory);
 
@@ -132,7 +134,7 @@ public class Common {
                 if (!Files.isDirectory(entry) && entry.toString().endsWith(".jar")) {
                     File file = entry.toFile();
                     Pack pack = checkPackZip(file);
-                    if(pack == null) LOG.error("Invalid ext.json for " + file.getName());
+                    if(pack == null) continue;
                     LOG.info("Detected valid pack "+file.getName());
                     packs.add(pack);
                 }
@@ -153,29 +155,25 @@ public class Common {
 
     private static boolean loadExistingPackFiles() {
 
+        LOG.info("Loading existing pack files");
+
         try {
             DirectoryStream<Path> stream = Files.newDirectoryStream(packsDirectory);
 
             if(stream == null) return false;
 
             for (Path entry : stream) {
+                File file = entry.toFile();
+                Pack pack = null;
 
-                try {
-                    File file = entry.toFile();
-                    if (!Files.isDirectory(entry) && entry.toString().endsWith(".zip")) {
-                        Pack pack = checkPackZip(file);
-                        if(pack == null) LOG.error("Invalid ext.json for " + file.getName());
-                        loadedPacks.add(pack);
-                    } else if (Files.isDirectory(entry)) {
-                        Pack pack = checkPackFolder(file);
-                        if (pack == null) LOG.error("Invalid ext.json for " + file.getName());
-                        loadedPacks.add(pack);
+                if (!Files.isDirectory(entry) && entry.toString().endsWith(".zip"))
+                    pack = checkPackZip(file);
+                else if (Files.isDirectory(entry))
+                    pack = checkPackFolder(file);
 
-                    }
-                } catch(IOException ex) {
-                    LOG.error("IOError reading loaded content pack folder" + entry.getFileName());
-                }
-
+                // Skip mods / the ones without ext.json
+                if (pack == null) return false;
+                loadedPacks.add(pack);
             }
 
             if(loadedPacks.isEmpty()) {
@@ -191,44 +189,51 @@ public class Common {
         return false;
     }
 
-    private static Pack checkPackZip(File file) throws IOException {
-        //LOG.error("IOError reading mod file" + file.getName());
+    private static Pack checkPackZip(File file) {
 
-        ZipFile zipFile = new ZipFile(file);
-        Enumeration<? extends ZipEntry> e = zipFile.entries();
+        try {
+            ZipFile zipFile = new ZipFile(file);
+            Enumeration<? extends ZipEntry> e = zipFile.entries();
 
-        while (e.hasMoreElements()) {
-            ZipEntry entry = (ZipEntry) e.nextElement();
+            while (e.hasMoreElements()) {
+                ZipEntry entry = (ZipEntry) e.nextElement();
 
-            if (!entry.isDirectory() && entry.getName().equals("ext.json")) {
-                BufferedInputStream bis = new BufferedInputStream(zipFile.getInputStream(entry));
-                String json = IOUtils.toString(bis, "UTF-8");
-                bis.close();
+                if (!entry.isDirectory() && entry.getName().equals("ext.json")) {
+                    BufferedInputStream bis = new BufferedInputStream(zipFile.getInputStream(entry));
+                    String json = IOUtils.toString(bis, "UTF-8");
+                    bis.close();
 
-                String[] content = readPackJson(json);
-                if(content == null) return null;
+                    String[] content = readPackJson(json);
+                    if(content == null) return null;
 
-                return new Pack(content, file);
+                    return new Pack(content, file);
+                }
             }
+        } catch (IOException e) {
+            LOG.error("Failed to read ext.json in "+file);
         }
+
 
         return null;
     }
 
-    private static Pack checkPackFolder(File folder) throws IOException {
+    private static Pack checkPackFolder(File folder) {
+        try {
+            File[] files = folder.listFiles();
 
-        File[] files = folder.listFiles();
+            if (files != null) {
+                for (File file : files) {
+                    if (file.isFile() && file.getName().equals("ext.json")) {
+                        byte[] fileBytes = Files.readAllBytes(Paths.get(file.getAbsolutePath()));
+                        String[] content = readPackJson(new String(fileBytes, StandardCharsets.UTF_8));
 
-        if (files != null) {
-            for (File file : files) {
-                if (file.isFile() && file.getName().equals("ext.json")) {
-                    byte[] fileBytes = Files.readAllBytes(Paths.get(file.getAbsolutePath()));
-                    String[] content = readPackJson(new String(fileBytes, StandardCharsets.UTF_8));
-
-                    if(content == null) return null;
-                    return new Pack(content, file);
+                        if(content == null) return null;
+                        return new Pack(content, file);
+                    }
                 }
             }
+        } catch(IOException e) {
+            LOG.error("Failed to read ext.json in "+folder);
         }
 
         return null;
